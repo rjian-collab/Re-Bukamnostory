@@ -22,3 +22,5 @@ EDITORS = "rjian@st-laurentacademy.com,bremen2006@gmail.com"
 # 唯一的機密值「不要」寫在這個檔案裡，到 Cloudflare 後台
 # Workers & Pages → rebukanostory-admin → Settings → Variables and Secrets 新增（類型選 Secret）：
 #   GH_TOKEN（GitHub 的 Fine-grained token，只授權這個儲存庫的 Contents 讀寫）
+
+# （觸發部署用的空白註解）
