@@ -105,32 +105,45 @@
       const ed = el('div', { class: 'edit', role: 'textbox', 'aria-multiline': 'true', 'data-ph': '在這裡輸入文字…' });
       ed.contentEditable = PLAIN ? 'plaintext-only' : 'true';
       ed.textContent = b.text || '';
-      ed.addEventListener('input', () => setDirty(true));
+      ed.addEventListener('input', () => { setDirty(true); updateCount(); });
       ed.addEventListener('keydown', onKey);
       ed.addEventListener('paste', onPaste);
       wrap.appendChild(ed);
     }
-    wrap.appendChild(makeTools(wrap));
     return wrap;
   }
 
-  function makeTools(wrap) {
-    const t = el('div', { class: 'tools', role: 'group' });
-    const isImg = wrap.dataset.type === 'img';
-    if (!isImg) {
-      const sel = el('select', { 'aria-label': '區塊類型' });
-      for (const k in TYPES) { const o = el('option', { value: k }, TYPES[k]); if (k === wrap.dataset.type) o.selected = true; sel.appendChild(o); }
-      sel.addEventListener('change', () => { wrap.dataset.type = sel.value; setDirty(true); relabel(); });
-      t.appendChild(sel);
-    }
-    const mkb = (label, text, fn) => { const b = el('button', { type: 'button', class: 'btn', 'aria-label': label }, text); b.addEventListener('click', fn); t.appendChild(b); return b; };
-    mkb('上移此區塊', '↑', () => shift(wrap, -1));
-    mkb('下移此區塊', '↓', () => shift(wrap, 1));
-    mkb('在下方新增段落', '＋段落', () => { const n = insertAfter(wrap, { type: 'p', text: '' }); focusBlock(n); });
-    mkb('在下方插入圖片', '＋圖片', () => pickImage(wrap));
-    mkb('刪除此區塊', '刪除', () => { if (confirm('確定刪除這個區塊？')) removeBlock(wrap); });
-    return t;
+  // ---------- 上方格式工具列：作用在「目前這一段」 ----------
+  let current = null;
+  function setCurrent(w) {
+    current = w && w.parentNode === blocksEl() ? w : null;
+    [...blocksEl().children].forEach((x) => x.classList.toggle('cur', x === current));
+    const type = current ? current.dataset.type : null;
+    document.querySelectorAll('#fmt [data-fmt]').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.fmt === type));
+      b.disabled = !current || type === 'img';
+    });
+    document.querySelectorAll('#fmt [data-act]').forEach((b) => { b.disabled = !current && b.dataset.act !== 'img'; });
   }
+  function updateCount() {
+    const n = [...blocksEl().querySelectorAll('.edit')].reduce((s, e) => s + e.innerText.replace(/\s/g, '').length, 0);
+    $('count').textContent = '共 ' + n.toLocaleString() + ' 字';
+  }
+  function refocus() { if (current) focusBlock(current); }
+  document.getElementById('fmt').addEventListener('mousedown', (e) => { if (e.target.closest('button')) e.preventDefault(); }); // 按按鈕時游標留在原段落
+  document.getElementById('fmt').addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
+    if (b.dataset.fmt && current && current.dataset.type !== 'img') {
+      current.dataset.type = b.dataset.fmt; setDirty(true); relabel(); setCurrent(current); refocus();
+      $('live').textContent = '已改成' + TYPES[b.dataset.fmt];
+      return;
+    }
+    const act = b.dataset.act;
+    if (act === 'up' && current) { shift(current, -1); refocus(); }
+    if (act === 'down' && current) { shift(current, 1); refocus(); }
+    if (act === 'img') pickImage(current || blocksEl().lastElementChild);
+    if (act === 'del' && current) { if (blocksEl().children.length > 1 || confirm('這是最後一段，確定刪除？')) removeBlock(current); }
+  });
   function blocksEl() { return $('blocks'); }
   function relabel() {
     [...blocksEl().children].forEach((w, i) => {
@@ -142,7 +155,7 @@
   function insertAfter(ref, b) {
     const n = makeBlock(b);
     if (ref && ref.nextSibling) blocksEl().insertBefore(n, ref.nextSibling); else blocksEl().appendChild(n);
-    setDirty(true); relabel(); return n;
+    setDirty(true); relabel(); updateCount(); return n;
   }
   function focusBlock(w) {
     const t = w.querySelector('.edit') || w.querySelector('.alt');
@@ -153,24 +166,59 @@
     if (!sib) return;
     if (d < 0) blocksEl().insertBefore(w, sib); else blocksEl().insertBefore(sib, w);
     setDirty(true); relabel();
-    const b = w.querySelector('.tools .btn[aria-label^="' + (d < 0 ? '上移' : '下移') + '"]'); if (b) b.focus();
     $('live').textContent = '區塊已' + (d < 0 ? '上' : '下') + '移';
   }
   function removeBlock(w) {
     const prev = w.previousElementSibling || w.nextElementSibling;
-    w.remove(); setDirty(true); relabel();
-    if (prev) focusBlock(prev);
+    w.remove(); setDirty(true); relabel(); updateCount();
+    if (prev) focusBlock(prev); else setCurrent(null);
     $('live').textContent = '區塊已刪除';
+  }
+  function caretAt(ed, where) {
+    const sel = getSelection(); if (!sel.rangeCount || !sel.isCollapsed) return false;
+    const r = sel.getRangeAt(0), probe = document.createRange();
+    probe.selectNodeContents(ed);
+    if (where === 'start') probe.setEnd(r.startContainer, r.startOffset); else probe.setStart(r.endContainer, r.endOffset);
+    return probe.toString().replace(/\n$/, '') === '';
+  }
+  function placeCaret(ed, atStart, offsetChars) {
+    ed.focus();
+    const r = document.createRange(), sel = getSelection();
+    if (offsetChars != null && ed.firstChild && ed.firstChild.nodeType === 3) { r.setStart(ed.firstChild, Math.min(offsetChars, ed.firstChild.length)); r.collapse(true); }
+    else { r.selectNodeContents(ed); r.collapse(atStart); }
+    sel.removeAllRanges(); sel.addRange(r);
   }
   function onKey(e) {
     const ed = e.currentTarget, wrap = ed.closest('.block'), type = wrap.dataset.type;
-    if (e.key === 'Enter' && !e.isComposing) {
+    if (e.isComposing) return;
+    const prevW = wrap.previousElementSibling, nextW = wrap.nextElementSibling;
+    if (e.key === 'Enter') {
       if (type === 'verse' && !e.ctrlKey) { if (!PLAIN) { e.preventDefault(); document.execCommand('insertText', false, '\n'); } return; }
       e.preventDefault();
-      const n = insertAfter(wrap, { type: type === 'h2' || type === 'h3' ? 'p' : (type === 'verse' ? 'p' : type), text: '' });
-      focusBlock(n);
-    } else if (e.key === 'Backspace' && !e.isComposing && ed.innerText.replace(/\s/g, '') === '' && blocksEl().children.length > 1) {
-      e.preventDefault(); removeBlock(wrap);
+      // 在段落中間按 Enter：把游標後面的文字切到新的一段
+      const sel = getSelection(); let tail = '';
+      if (sel.rangeCount) {
+        const r = sel.getRangeAt(0), after = document.createRange();
+        after.selectNodeContents(ed); after.setStart(r.endContainer, r.endOffset);
+        tail = after.toString(); r.deleteContents(); after.deleteContents();
+      }
+      const n = insertAfter(wrap, { type: type === 'note' ? 'note' : 'p', text: tail.replace(/^\s+/, '') });
+      placeCaret(n.querySelector('.edit'), true);
+      setDirty(true); updateCount();
+    } else if (e.key === 'Backspace' && caretAt(ed, 'start') && prevW) {
+      const prevEd = prevW.querySelector('.edit');
+      if (ed.innerText.replace(/\s/g, '') === '') { e.preventDefault(); removeBlock(wrap); if (prevEd) placeCaret(prevEd, false); return; }
+      if (prevEd) { // 和上一段合併
+        e.preventDefault();
+        const join = prevEd.innerText.replace(/\n+$/, '').length;
+        prevEd.textContent = prevEd.innerText.replace(/\n+$/, '') + ed.innerText.replace(/\n+$/, '');
+        wrap.remove(); relabel(); setDirty(true); updateCount();
+        placeCaret(prevEd, false, join);
+      }
+    } else if (e.key === 'ArrowUp' && caretAt(ed, 'start') && prevW) {
+      const t = prevW.querySelector('.edit'); if (t) { e.preventDefault(); placeCaret(t, false); }
+    } else if (e.key === 'ArrowDown' && caretAt(ed, 'end') && nextW) {
+      const t = nextW.querySelector('.edit'); if (t) { e.preventDefault(); placeCaret(t, true); }
     }
   }
   function onPaste(e) {
@@ -178,18 +226,20 @@
     const text = (e.clipboardData || window.clipboardData).getData('text/plain').replace(/\r/g, '');
     const wrap = e.currentTarget.closest('.block');
     const verse = wrap.dataset.type === 'verse';
-    const paras = verse ? [text] : text.split(/\n\s*\n/).map((s) => s.replace(/\s*\n\s*/g, ' ').trim()).filter(Boolean);
+    const paras = verse ? [text] : text.split(/\n+/).map((s) => s.replace(/^[\s\u3000]+|[\s\u3000]+$/g, '')).filter(Boolean); // 每一行就是一段
     if (!paras.length) return;
     document.execCommand('insertText', false, paras[0]);
     let ref = wrap;
     for (const p of paras.slice(1)) ref = insertAfter(ref, { type: 'p', text: p });
-    setDirty(true);
+    if (ref !== wrap) placeCaret(ref.querySelector('.edit'), false);
+    setDirty(true); updateCount();
+    if (paras.length > 1) say('已貼上並自動分成 ' + paras.length + ' 段');
   }
 
   function renderBlocks(blocks) {
     const c = blocksEl(); c.textContent = '';
     (blocks.length ? blocks : [{ type: 'p', text: '' }]).forEach((b) => c.appendChild(makeBlock(b)));
-    relabel();
+    relabel(); setCurrent(null); updateCount();
   }
   function collect() {
     return [...blocksEl().children].map((w) => {
@@ -284,15 +334,18 @@
 
   // ---------- 匯入純文字 ----------
   function parseText(txt) {
-    const out = [];
-    for (const raw of txt.replace(/\r/g, '').split(/\n\s*\n/)) {
-      const c = raw.trim(); if (!c) continue;
-      if (c.startsWith('| ')) out.push({ type: 'verse', text: c.split('\n').map((l) => l.replace(/^\|\s?/, '')).join('\n') });
-      else if (c.startsWith('### ')) out.push({ type: 'h3', text: c.slice(4) });
-      else if (c.startsWith('## ')) out.push({ type: 'h2', text: c.slice(3) });
-      else if (c.startsWith('[註]')) out.push({ type: 'note', text: c.replace(/^\[註\]\s*/, '') });
-      else out.push({ type: 'p', text: c.replace(/\s*\n\s*/g, ' ') });
+    const out = []; let verse = null;
+    for (const raw of txt.replace(/\r/g, '').split('\n')) {
+      const line = raw.replace(/^[\s\u3000]+|[\s\u3000]+$/g, '');
+      if (raw.startsWith('| ') || raw === '|') { (verse = verse || { type: 'verse', lines: [] }).lines.push(raw.replace(/^\|\s?/, '')); continue; }
+      if (verse) { out.push({ type: 'verse', text: verse.lines.join('\n') }); verse = null; }
+      if (!line) continue;
+      if (line.startsWith('### ')) out.push({ type: 'h3', text: line.slice(4) });
+      else if (line.startsWith('## ')) out.push({ type: 'h2', text: line.slice(3) });
+      else if (line.startsWith('[註]')) out.push({ type: 'note', text: line.replace(/^\[註\]\s*/, '') });
+      else out.push({ type: 'p', text: line });
     }
+    if (verse) out.push({ type: 'verse', text: verse.lines.join('\n') });
     return out;
   }
 
@@ -336,7 +389,7 @@
     } catch (e) { say('刪除失敗：' + e.message, true); }
   });
   $('add-p').addEventListener('click', () => { const n = insertAfter(blocksEl().lastElementChild, { type: 'p', text: '' }); focusBlock(n); });
-  $('add-img').addEventListener('click', () => pickImage(blocksEl().lastElementChild));
+  blocksEl().addEventListener('focusin', (e) => { const w = e.target.closest('.block'); if (w) setCurrent(w); });
   $('title').addEventListener('input', () => setDirty(true));
   document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (state.cur) $('btn-save').click(); } });
 

@@ -34,6 +34,7 @@
     <main id="editor" tabindex="-1">
       <p id="empty">請從左邊選一個頁面開始編輯。</p>
       <section id="work" hidden>
+        <div class="sticky">
         <div class="bar" role="toolbar" aria-label="頁面操作">
           <span id="status-badge" class="badge"></span>
           <span id="dirty" class="dirty" hidden>● 尚未儲存</span>
@@ -45,17 +46,29 @@
           <button type="button" class="btn danger" id="btn-delete">刪除頁面</button>
         </div>
 
-        <label class="field">頁面標題
-          <input id="title" type="text" maxlength="200" autocomplete="off">
-        </label>
-        <p class="slug-line">網址代號：<code id="slug-show"></code>　<a id="preview" href="#" target="_blank" rel="noopener" hidden>預覽公開頁面 ↗</a></p>
-
-        <div id="blocks" role="list" aria-label="頁面內容區塊"></div>
-        <div class="add-row">
-          <button type="button" class="btn" id="add-p">＋ 新增段落</button>
-          <button type="button" class="btn" id="add-img">＋ 插入圖片</button>
+        <div class="fmt" role="toolbar" aria-label="段落格式" id="fmt">
+          <button type="button" class="fbtn" data-fmt="p" aria-pressed="false" title="一般段落">段落</button>
+          <button type="button" class="fbtn" data-fmt="h2" aria-pressed="false" title="大標題">大標題</button>
+          <button type="button" class="fbtn" data-fmt="h3" aria-pressed="false" title="小標題">小標題</button>
+          <button type="button" class="fbtn" data-fmt="note" aria-pressed="false" title="註解（小字、灰色）">註解</button>
+          <button type="button" class="fbtn" data-fmt="verse" aria-pressed="false" title="詩歌／歌詞（保留換行）">詩歌</button>
+          <span class="sep" aria-hidden="true"></span>
+          <button type="button" class="fbtn" data-act="up" title="把這段往上移">↑ 上移</button>
+          <button type="button" class="fbtn" data-act="down" title="把這段往下移">↓ 下移</button>
+          <button type="button" class="fbtn" data-act="img" title="在這段下面插入圖片">🖼 插入圖片</button>
+          <button type="button" class="fbtn danger" data-act="del" title="刪除這一段">刪除這段</button>
+          <span class="spacer"></span>
+          <span id="count" class="count" aria-live="off"></span>
         </div>
-        <p class="tip">小提示：在段落裡按 Enter 會新增下一段；詩歌／歌詞區塊的 Enter 是換行。貼上多段文字時會自動分段。</p>
+        </div>
+
+        <article class="paper">
+          <input id="title" class="title-input" type="text" maxlength="200" autocomplete="off" aria-label="頁面標題" placeholder="頁面標題">
+          <p class="slug-line">網址代號：<code id="slug-show"></code>　<a id="preview" href="#" target="_blank" rel="noopener" hidden>預覽公開頁面 ↗</a></p>
+          <div id="blocks" role="list" aria-label="頁面內容"></div>
+          <button type="button" class="add-end" id="add-p">＋ 在最後新增一段</button>
+        </article>
+        <p class="tip">像在 Word 裡打字一樣：Enter 換下一段，在段落開頭按 Backspace 會和上一段合併，↑↓ 方向鍵可以跳到上下段。點一下任一段，再按上面的按鈕就能改格式。貼上整篇文章時，每一行會自動成為一段。Ctrl + S 儲存。</p>
       </section>
     </main>
   </div>
@@ -82,7 +95,7 @@
   <dialog id="dlg-import" aria-labelledby="dlg-import-t">
     <form method="dialog" id="form-import">
       <h2 id="dlg-import-t">匯入純文字</h2>
-      <p>貼上整章文字，段落之間空一行。會<strong>取代</strong>目前頁面的全部內容。</p>
+      <p>貼上整章文字，<strong>每一行會成為一段</strong>（空行會自動略過）。會<strong>取代</strong>目前頁面的全部內容。</p>
       <p class="tip">進階標記：<code>## 大標題</code>、<code>### 小標題</code>、<code>[註] 註解</code>、每行開頭 <code>| </code> 代表詩歌／歌詞。</p>
       <label class="field">文字內容 <textarea id="import-text" rows="14"></textarea></label>
       <div class="row end">
