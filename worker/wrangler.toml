@@ -9,15 +9,15 @@ binding = "ASSETS"
 run_worker_first = true
 
 [vars]
-# ↓↓↓ 以下四行請改成你自己的 ↓↓↓
 GH_REPO = "rjian-collab/Re-Bukamnostory"
 GH_BRANCH = "main"
-ACCESS_TEAM_DOMAIN = "你的team名稱.cloudflareaccess.com"
+# Google 登入用的用戶端 ID（公開資訊，不是密碼）
+GOOGLE_CLIENT_ID = "973299793362-8h7ji9oh0scufrt2hktthub2mghaqtlo.apps.googleusercontent.com"
 # 你的 GitHub Pages 網址（結尾要有 /），後台的「預覽」連結會用到
 SITE_URL = "https://rjian-collab.github.io/Re-Bukamnostory/"
 # 編輯者名單（用逗號分隔）
 EDITORS = "rjian@st-laurentacademy.com,bremen2006@gmail.com"
 
-# 另外兩個機密值「不要」寫在這個檔案裡，到 Cloudflare 後台
+# 唯一的機密值「不要」寫在這個檔案裡，到 Cloudflare 後台
 # Workers & Pages → rebukanostory-admin → Settings → Variables and Secrets 新增（類型選 Secret）：
-#   GH_TOKEN、ACCESS_AUD
+#   GH_TOKEN（GitHub 的 Fine-grained token，只授權這個儲存庫的 Contents 讀寫）

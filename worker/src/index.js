@@ -1,9 +1,9 @@
-// Cloudflare Worker：編輯後台 + API
+// Cloudflare Worker：編輯後台 + API（Google 登入）
 // 安全設計（由外而內）：
-//   1) Cloudflare Access 在最外層擋住不在名單內的人（登入網址）。
-//   2) 這個 Worker 再驗證一次 Access 簽發的 JWT，並比對 EDITORS 名單（雙重保險）。
+//   1) 用 Google 登入證明 Email 是本人的（伺服器驗證簽章、aud、iss、期限、email_verified）。
+//   2) Email 必須在 EDITORS 名單內，才會發出 12 小時的簽章 Cookie（HttpOnly、Secure、SameSite=Strict）。
 //   3) 寫入 GitHub 用的 Token 只存在 Worker 的 Secret，瀏覽器看不到。
-//   4) 所有內容在伺服器端重新檢查格式，圖片只收真正的 jpg/png/gif/webp。
+//   4) 所有內容在伺服器端重新檢查格式，圖片只收真正的 jpg/png/gif/webp；寫入請求必須同源。
 
 const BLOCK_TYPES = new Set(['p', 'h2', 'h3', 'note', 'verse', 'img']);
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,60}$/;
@@ -29,30 +29,30 @@ const utf8ToB64 = (str) => {
 };
 const b64ToUtf8 = (b64) => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), (c) => c.charCodeAt(0)));
 
-// ---------- Cloudflare Access JWT 驗證 ----------
-let jwksCache = { keys: [], at: 0 };
-async function getKeys(env, force) {
-  if (!force && jwksCache.keys.length && Date.now() - jwksCache.at < 3600_000) return jwksCache.keys;
-  const r = await fetch(`https://${env.ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`);
-  if (!r.ok) throw new Error('cannot load Access certs');
-  jwksCache = { keys: (await r.json()).keys || [], at: Date.now() };
-  return jwksCache.keys;
+// ---------- Google 登入 + 工作階段 Cookie ----------
+const SESSION_SECONDS = 12 * 3600;
+const COOKIE = 'rbs_session';
+const toB64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+let googleKeys = { keys: [], at: 0 };
+async function getGoogleKeys(force) {
+  if (!force && googleKeys.keys.length && Date.now() - googleKeys.at < 3600_000) return googleKeys.keys;
+  const r = await fetch('https://www.googleapis.com/oauth2/v3/certs');
+  if (!r.ok) throw new Error('cannot load Google certs');
+  googleKeys = { keys: (await r.json()).keys || [], at: Date.now() };
+  return googleKeys.keys;
 }
 
-export async function verifyAccess(request, env) {
-  // 本機開發才用：在 .dev.vars 設定 DEV_EMAIL。正式環境絕對不要設。
-  if (env.DEV_EMAIL) return env.DEV_EMAIL.toLowerCase();
-
-  const token = request.headers.get('Cf-Access-Jwt-Assertion');
-  if (!token || !env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) return null;
+// 驗證 Google 簽發的 ID token：簽章、發給誰(aud)、簽發者(iss)、期限、Email 已驗證
+export async function verifyGoogleToken(token, env) {
+  if (typeof token !== 'string' || !env.GOOGLE_CLIENT_ID) return null;
   const parts = token.split('.');
   if (parts.length !== 3) return null;
   try {
     const header = JSON.parse(new TextDecoder().decode(b64uToBytes(parts[0])));
     if (header.alg !== 'RS256') return null;
-    let keys = await getKeys(env, false);
-    let jwk = keys.find((k) => k.kid === header.kid);
-    if (!jwk) { keys = await getKeys(env, true); jwk = keys.find((k) => k.kid === header.kid); }
+    let jwk = (await getGoogleKeys(false)).find((k) => k.kid === header.kid);
+    if (!jwk) jwk = (await getGoogleKeys(true)).find((k) => k.kid === header.kid);
     if (!jwk) return null;
     const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
     const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64uToBytes(parts[2]), new TextEncoder().encode(parts[0] + '.' + parts[1]));
@@ -60,15 +60,46 @@ export async function verifyAccess(request, env) {
     const p = JSON.parse(new TextDecoder().decode(b64uToBytes(parts[1])));
     const now = Math.floor(Date.now() / 1000);
     if (!p.exp || p.exp < now) return null;
-    if (p.nbf && p.nbf > now + 60) return null;
-    if (p.iss !== `https://${env.ACCESS_TEAM_DOMAIN}`) return null;
-    const aud = Array.isArray(p.aud) ? p.aud : [p.aud];
-    if (!aud.includes(env.ACCESS_AUD)) return null;
-    return typeof p.email === 'string' ? p.email.toLowerCase() : null;
+    if (p.iss !== 'accounts.google.com' && p.iss !== 'https://accounts.google.com') return null;
+    if (p.aud !== env.GOOGLE_CLIENT_ID) return null;
+    if (p.email_verified !== true || typeof p.email !== 'string') return null;
+    return p.email.toLowerCase();
   } catch {
     return null;
   }
 }
+
+// 工作階段簽章金鑰由 GH_TOKEN 衍生，不需要多設一個機密
+async function sessionKey(env) {
+  if (!env.GH_TOKEN) return null;
+  const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(env.GH_TOKEN + '|rbs-session-v1'));
+  return crypto.subtle.importKey('raw', raw, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);
+}
+export async function makeSession(email, env) {
+  const key = await sessionKey(env);
+  if (!key) return null;
+  const body = toB64u(new TextEncoder().encode(JSON.stringify({ e: email, x: Math.floor(Date.now() / 1000) + SESSION_SECONDS })));
+  const sig = toB64u(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body)));
+  return `${body}.${sig}`;
+}
+async function readSession(request, env) {
+  if (env.DEV_EMAIL) return env.DEV_EMAIL.toLowerCase(); // 只給本機開發用，正式環境不要設
+  const m = (request.headers.get('cookie') || '').match(new RegExp('(?:^|; )' + COOKIE + '=([^;]+)'));
+  const key = await sessionKey(env);
+  if (!m || !key) return null;
+  const [body, sig] = m[1].split('.');
+  if (!body || !sig) return null;
+  try {
+    const ok = await crypto.subtle.verify('HMAC', key, b64uToBytes(sig), new TextEncoder().encode(body));
+    if (!ok) return null;
+    const p = JSON.parse(new TextDecoder().decode(b64uToBytes(body)));
+    if (!p.x || p.x < Math.floor(Date.now() / 1000)) return null;
+    return typeof p.e === 'string' ? p.e : null;
+  } catch {
+    return null;
+  }
+}
+const cookieHeader = (value, maxAge) => `${COOKIE}=${value}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${maxAge}`;
 
 const editors = (env) => (env.EDITORS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 
@@ -235,20 +266,45 @@ async function api(request, env, url, email) {
   return fail(404, 'Not found');
 }
 
-const ADMIN_CSP = "default-src 'self'; img-src 'self' https: data: blob:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+const ADMIN_CSP = "default-src 'self'; img-src 'self' https: data: blob:; style-src 'self' https://accounts.google.com/gsi/style; script-src 'self' https://accounts.google.com/gsi/client; frame-src https://accounts.google.com/gsi/; connect-src 'self' https://accounts.google.com/gsi/; frame-ancestors 'none'; base-uri 'none'; form-action 'self'";
+
+function sameOrigin(request, url) {
+  const origin = request.headers.get('origin');
+  return !!origin && new URL(origin).host === url.host;
+}
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const email = await verifyAccess(request, env);
-    if (!email || !editors(env).includes(email)) {
-      if (url.pathname.startsWith('/api/')) return fail(403, '你沒有編輯權限');
-      return new Response('403 — 這個帳號沒有編輯權限。', { status: 403, headers: { 'content-type': 'text/plain; charset=utf-8' } });
+    const path = url.pathname;
+
+    // ---- 不需要登入的端點 ----
+    if (path === '/api/config' && request.method === 'GET') return json({ clientId: env.GOOGLE_CLIENT_ID || '' });
+    if (path === '/api/login' && request.method === 'POST') {
+      if (!sameOrigin(request, url)) return fail(403, '來源不符');
+      let body; try { body = await request.json(); } catch { return fail(400, '格式錯誤'); }
+      const email = await verifyGoogleToken(body.credential, env);
+      if (!email) return fail(401, 'Google 登入驗證失敗，請再試一次。');
+      if (!editors(env).includes(email)) return fail(403, `「${email}」不在編輯者名單內。`);
+      const session = await makeSession(email, env);
+      if (!session) return fail(500, '伺服器尚未設定 GH_TOKEN');
+      return new Response(JSON.stringify({ ok: true, email }), { headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'set-cookie': cookieHeader(session, SESSION_SECONDS) } });
     }
-    if (url.pathname.startsWith('/api/')) {
+    if (path === '/api/logout' && request.method === 'POST') {
+      if (!sameOrigin(request, url)) return fail(403, '來源不符');
+      return new Response(JSON.stringify({ ok: true }), { headers: { 'content-type': 'application/json; charset=utf-8', 'set-cookie': cookieHeader('', 0) } });
+    }
+
+    // ---- 其餘 API 一律要登入且在名單內 ----
+    if (path.startsWith('/api/')) {
+      const email = await readSession(request, env);
+      if (!email) return fail(401, '請先登入');
+      if (!editors(env).includes(email)) return fail(403, '你沒有編輯權限');
       try { return await api(request, env, url, email); }
       catch (e) { return fail(500, e.message || '伺服器錯誤'); }
     }
+
+    // ---- 後台網頁本身（只有登入畫面與程式，不含任何資料）----
     const res = await env.ASSETS.fetch(request);
     const h = new Headers(res.headers);
     h.set('content-security-policy', ADMIN_CSP);

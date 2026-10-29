@@ -340,17 +340,48 @@
   $('title').addEventListener('input', () => setDirty(true));
   document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); if (state.cur) $('btn-save').click(); } });
 
-  // ---------- 啟動 ----------
+  // ---------- 登入 / 啟動 ----------
+  async function showLogin(msg) {
+    $('layout').hidden = true; $('logout').hidden = true; $('login').hidden = false;
+    $('who').textContent = '尚未登入';
+    if (msg) $('login-msg').textContent = msg;
+    let cfg = {};
+    try { cfg = await api('GET', '/api/config'); } catch (e) {}
+    if (!cfg.clientId) { $('login-msg').textContent = '後台尚未設定 Google 用戶端 ID（GOOGLE_CLIENT_ID）。'; return; }
+    await new Promise((res, rej) => {
+      if (window.google && window.google.accounts) return res();
+      const sc = document.createElement('script'); sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true; sc.onload = res; sc.onerror = rej;
+      document.head.appendChild(sc);
+    }).catch(() => { $('login-msg').textContent = '無法載入 Google 登入，請檢查網路後重新整理。'; });
+    if (!(window.google && window.google.accounts)) return;
+    google.accounts.id.initialize({
+      client_id: cfg.clientId,
+      callback: async (resp) => {
+        $('login-msg').textContent = '驗證中…';
+        try { await api('POST', '/api/login', { credential: resp.credential }); location.reload(); }
+        catch (e) { $('login-msg').textContent = e.message; }
+      },
+    });
+    google.accounts.id.renderButton($('g-btn'), { theme: 'outline', size: 'large', text: 'signin_with', locale: 'zh-TW' });
+  }
+  $('logout').addEventListener('click', async () => {
+    if (!confirmLeave()) return;
+    try { await api('POST', '/api/logout', {}); } catch (e) {}
+    setDirty(false); location.reload();
+  });
+
   (async function init() {
+    let me;
+    try { me = await api('GET', '/api/me'); }
+    catch (e) { return showLogin(e.status === 403 ? e.message : ''); }
     try {
-      const me = await api('GET', '/api/me');
       $('who').textContent = me.email;
+      $('layout').hidden = false; $('logout').hidden = false;
       state.siteUrl = me.siteUrl || '';
       if (state.siteUrl) { const v = $('view-site'); v.href = state.siteUrl; v.hidden = false; }
       state.index = await api('GET', '/api/index');
       renderList();
     } catch (e) {
-      $('who').textContent = '無法載入';
       say('載入失敗：' + e.message, true);
     }
   })();

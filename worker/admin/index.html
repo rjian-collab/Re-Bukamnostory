@@ -14,9 +14,17 @@
     <h1>編輯後台</h1>
     <p class="who">登入身分：<strong id="who">…</strong></p>
     <a id="view-site" class="btn" href="#" target="_blank" rel="noopener" hidden>開啟公開網站 ↗</a>
+    <button type="button" class="btn" id="logout" hidden>登出</button>
   </header>
 
-  <div class="layout">
+  <main id="login" class="login" hidden>
+    <h2>請先登入</h2>
+    <p>只有編輯者名單內的 Google 帳號可以進入後台。</p>
+    <div id="g-btn"></div>
+    <p id="login-msg" class="login-msg" role="alert"></p>
+  </main>
+
+  <div class="layout" id="layout" hidden>
     <nav class="side" aria-label="頁面清單">
       <button type="button" class="btn primary wide" id="new-page">＋ 新增頁面</button>
       <ul id="page-list"></ul>

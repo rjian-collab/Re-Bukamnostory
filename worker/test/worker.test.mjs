@@ -2,12 +2,12 @@
 import assert from 'node:assert/strict';
 import worker, { sanitizePage } from '../src/index.js';
 
-const TEAM = 'demo.cloudflareaccess.com', AUD = 'aud123';
+const CID = 'client123.apps.googleusercontent.com';
 const b64u = (buf) => Buffer.from(buf).toString('base64url');
 const kp = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign', 'verify']);
 const jwk = { ...(await crypto.subtle.exportKey('jwk', kp.publicKey)), kid: 'k1', alg: 'RS256', use: 'sig' };
-async function token({ email, aud = AUD, iss = `https://${TEAM}`, exp = Math.floor(Date.now() / 1000) + 600, key = kp.privateKey }) {
-  const h = b64u(JSON.stringify({ alg: 'RS256', kid: 'k1' })), p = b64u(JSON.stringify({ email, aud: [aud], iss, exp }));
+async function gtoken({ email, aud = CID, iss = 'https://accounts.google.com', exp = Math.floor(Date.now() / 1000) + 600, verified = true, key = kp.privateKey }) {
+  const h = b64u(JSON.stringify({ alg: 'RS256', kid: 'k1' })), p = b64u(JSON.stringify({ email, aud, iss, exp, email_verified: verified }));
   const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(h + '.' + p));
   return `${h}.${p}.${b64u(sig)}`;
 }
@@ -20,7 +20,7 @@ put('content/pages/ch-1.json', { title: 'One', published: true, blocks: [{ type:
 const calls = [];
 globalThis.fetch = async (url, init = {}) => {
   url = String(url);
-  if (url.includes('/cdn-cgi/access/certs')) return Response.json({ keys: [jwk] });
+  if (url.includes('googleapis.com/oauth2/v3/certs')) return Response.json({ keys: [jwk] });
   const m = url.match(/contents\/([^?]+)/);
   if (!m) return new Response('nope', { status: 404 });
   const path = decodeURIComponent(m[1]); const method = init.method || 'GET';
@@ -34,29 +34,47 @@ globalThis.fetch = async (url, init = {}) => {
   return Response.json({ content: { sha } });
 };
 
-const env = { ACCESS_TEAM_DOMAIN: TEAM, ACCESS_AUD: AUD, EDITORS: 'rjian@st-laurentacademy.com, Bremen2006@gmail.com', GH_REPO: 'o/r', GH_BRANCH: 'main', GH_TOKEN: 'x', ASSETS: { fetch: async () => new Response('<html>ok</html>', { headers: { 'content-type': 'text/html' } }) } };
+const env = { GOOGLE_CLIENT_ID: CID, EDITORS: 'rjian@st-laurentacademy.com, Bremen2006@gmail.com', GH_REPO: 'o/r', GH_BRANCH: 'main', GH_TOKEN: 'ghp_test_secret', ASSETS: { fetch: async () => new Response('<html>ok</html>', { headers: { 'content-type': 'text/html' } }) } };
 const BASE = 'https://admin.example.dev';
 const req = async (method, path, { body, tok, origin = BASE } = {}) => {
-  const headers = {}; if (tok) headers['Cf-Access-Jwt-Assertion'] = tok; if (body) headers['content-type'] = 'application/json'; if (method !== 'GET' && origin) headers.origin = origin;
+  const headers = {}; if (tok) headers.cookie = 'rbs_session=' + tok; if (body) headers['content-type'] = 'application/json'; if (method !== 'GET' && origin) headers.origin = origin;
   return worker.fetch(new Request(BASE + path, { method, headers, body: body ? JSON.stringify(body) : undefined }), env);
 };
 let n = 0; const ok = (name) => console.log(`  ✓ ${++n}. ${name}`);
 
-const good = await token({ email: 'rjian@st-laurentacademy.com' });
-const good2 = await token({ email: 'BREMEN2006@gmail.com' });
+const login = async (email, opts = {}) => {
+  const r = await worker.fetch(new Request(BASE + '/api/login', { method: 'POST', headers: { 'content-type': 'application/json', origin: opts.origin ?? BASE }, body: JSON.stringify({ credential: opts.cred ?? await gtoken({ email, ...opts.t }) }) }), env);
+  return r;
+};
+const sess = (r) => (r.headers.get('set-cookie') || '').match(/rbs_session=([^;]+)/)?.[1];
 
-// --- 權限 ---
-assert.equal((await req('GET', '/api/me')).status, 403); ok('沒有 token → 403');
-assert.equal((await req('GET', '/', {})).status, 403); ok('沒有 token 連後台頁面都不給');
-assert.equal((await req('GET', '/api/me', { tok: await token({ email: 'evil@x.com' }) })).status, 403); ok('不在名單的 email → 403');
-assert.equal((await req('GET', '/api/me', { tok: await token({ email: 'rjian@st-laurentacademy.com', aud: 'other' }) })).status, 403); ok('aud 不符 → 403');
-assert.equal((await req('GET', '/api/me', { tok: await token({ email: 'rjian@st-laurentacademy.com', iss: 'https://evil.cloudflareaccess.com' }) })).status, 403); ok('iss 不符 → 403');
-assert.equal((await req('GET', '/api/me', { tok: await token({ email: 'rjian@st-laurentacademy.com', exp: 1 }) })).status, 403); ok('過期 token → 403');
+// --- 登入與權限 ---
+assert.equal((await req('GET', '/api/me')).status, 401); ok('沒登入 → 401');
+assert.equal((await req('GET', '/api/me', { tok: 'abc.def' })).status, 401); ok('亂填的 Cookie → 401');
+assert.equal((await req('GET', '/')).status, 200); ok('後台頁面只有登入畫面與程式，可公開讀取');
+assert.equal((await (await req('GET', '/api/config')).json()).clientId, CID); ok('公開設定只給出 Google 用戶端 ID');
+assert.equal((await login('evil@x.com')).status, 403); ok('Google 驗證通過但不在名單 → 403，且沒有 Cookie');
+assert.equal(sess(await login('evil@x.com')), undefined); ok('不在名單不會發 Cookie');
+assert.equal((await login('rjian@st-laurentacademy.com', { t: { aud: 'other' } })).status, 401); ok('發給別的網站的 token（aud 不符）→ 401');
+assert.equal((await login('rjian@st-laurentacademy.com', { t: { iss: 'https://evil.com' } })).status, 401); ok('iss 不符 → 401');
+assert.equal((await login('rjian@st-laurentacademy.com', { t: { exp: 1 } })).status, 401); ok('過期的 Google token → 401');
+assert.equal((await login('rjian@st-laurentacademy.com', { t: { verified: false } })).status, 401); ok('Email 未驗證 → 401');
 const other = await crypto.subtle.generateKey({ name: 'RSASSA-PKCS1-v1_5', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['sign']);
-assert.equal((await req('GET', '/api/me', { tok: await token({ email: 'rjian@st-laurentacademy.com', key: other.privateKey }) })).status, 403); ok('偽造簽章 → 403');
-let r = await req('GET', '/api/me', { tok: good }); assert.equal(r.status, 200); assert.equal((await r.json()).email, 'rjian@st-laurentacademy.com'); ok('編輯者 1 通過');
-r = await req('GET', '/api/me', { tok: good2 }); assert.equal(r.status, 200); ok('編輯者 2 通過（大小寫不影響）');
-r = await req('GET', '/', { tok: good }); assert.equal(r.status, 200); assert.match(r.headers.get('content-security-policy'), /script-src 'self'/); ok('後台頁面帶 CSP 標頭');
+assert.equal((await login('rjian@st-laurentacademy.com', { t: { key: other.privateKey } })).status, 401); ok('偽造簽章 → 401');
+assert.equal((await login('x', { cred: 'not-a-jwt' })).status, 401); ok('亂填憑證 → 401');
+assert.equal((await login('rjian@st-laurentacademy.com', { origin: 'https://evil.com' })).status, 403); ok('跨站登入請求 → 403');
+let lr = await login('rjian@st-laurentacademy.com'); assert.equal(lr.status, 200);
+const ck = lr.headers.get('set-cookie'); assert.match(ck, /HttpOnly/); assert.match(ck, /Secure/); assert.match(ck, /SameSite=Strict/); ok('編輯者 1 登入成功，Cookie 帶 HttpOnly/Secure/SameSite=Strict');
+const good = sess(lr);
+const good2 = sess(await login('Bremen2006@Gmail.com')); assert.ok(good2); ok('編輯者 2 登入成功（大小寫不影響）');
+let r = await req('GET', '/api/me', { tok: good }); assert.equal((await r.json()).email, 'rjian@st-laurentacademy.com'); ok('帶 Cookie 可讀 /api/me');
+assert.equal((await req('GET', '/api/me', { tok: good.slice(0, -3) + 'AAA' })).status, 401); ok('竄改 Cookie 簽章 → 401');
+const [body] = good.split('.'); const forged = Buffer.from(JSON.stringify({ e: 'evil@x.com', x: 9999999999 })).toString('base64url');
+assert.equal((await req('GET', '/api/me', { tok: forged + '.' + good.split('.')[1] })).status, 401); ok('偽造別人的 Cookie 內容 → 401');
+const expired = await (async () => { const real = Date.now; Date.now = () => real() + 13 * 3600_000; const st = (await req('GET', '/api/me', { tok: good })).status; Date.now = real; return st; })();
+assert.equal(expired, 401); ok('超過 12 小時 Cookie 失效');
+r = await req('GET', '/', { tok: good }); assert.match(r.headers.get('content-security-policy'), /script-src 'self' https:\/\/accounts\.google\.com\/gsi\/client/); ok('後台頁面帶 CSP 標頭');
+r = await req('POST', '/api/logout', { tok: good, body: {} }); assert.match(r.headers.get('set-cookie'), /Max-Age=0/); ok('登出會清除 Cookie');
 
 // --- CSRF ---
 assert.equal((await req('PUT', '/api/page/ch-1', { tok: good, body: {}, origin: 'https://evil.com' })).status, 403); ok('跨站寫入 → 403');

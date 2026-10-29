@@ -64,3 +64,7 @@ dialog h2 { margin-top: 0; }
 .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: .7rem 1.2rem; border-radius: 10px; z-index: 100; max-width: 92vw; }
 .toast.err { background: var(--danger); color: #fff; }
 code { background: color-mix(in srgb, var(--accent) 10%, transparent); padding: 0 .3em; border-radius: 4px; }
+.login { max-width: 28rem; margin: 3rem auto; padding: 0 16px; text-align: center; }
+.login-msg { color: var(--danger); font-weight: 700; min-height: 1.7em; }
+#g-btn { display: flex; justify-content: center; margin: 1.5rem 0; min-height: 44px; }
+[hidden] { display: none !important; }
