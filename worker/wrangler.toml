@@ -1,0 +1,23 @@
+name = "rebukanostory-admin"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# 編輯後台的網頁檔（admin 資料夾）。所有請求先經過 Worker，Worker 再決定要不要放行。
+[assets]
+directory = "./admin"
+binding = "ASSETS"
+run_worker_first = true
+
+[vars]
+# ↓↓↓ 以下四行請改成你自己的 ↓↓↓
+GH_REPO = "你的GitHub帳號/rebukanostory"
+GH_BRANCH = "main"
+ACCESS_TEAM_DOMAIN = "你的team名稱.cloudflareaccess.com"
+# 你的 GitHub Pages 網址（結尾要有 /），後台的「預覽」連結會用到
+SITE_URL = "https://你的GitHub帳號.github.io/rebukanostory/"
+# 編輯者名單（用逗號分隔）
+EDITORS = "rjian@st-laurentacademy.com,bremen2006@gmail.com"
+
+# 另外兩個機密值「不要」寫在這個檔案裡，用指令設定：
+#   npx wrangler secret put GH_TOKEN
+#   npx wrangler secret put ACCESS_AUD

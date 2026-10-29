@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Re:Bukanostory</title>
+  <meta name="description" content="半山憶往 — 一個家族與一個時代的回憶錄">
+  <meta name="color-scheme" content="light dark">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="config.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要內容</a>
+
+  <header class="site-header" role="banner">
+    <a class="brand" href="#/" id="brand">Re:Bukanostory</a>
+    <div class="header-actions">
+      <button type="button" class="btn" id="toc-btn" aria-expanded="false" aria-controls="toc">章節目錄</button>
+      <button type="button" class="btn" id="a11y-btn" aria-haspopup="dialog" aria-controls="a11y-panel">無障礙設定</button>
+    </div>
+  </header>
+
+  <nav id="toc" class="toc" aria-label="章節目錄" hidden>
+    <label class="toc-search">
+      <span>搜尋章節</span>
+      <input type="search" id="toc-filter" autocomplete="off" placeholder="輸入關鍵字，例如：外婆">
+    </label>
+    <ol id="toc-list"></ol>
+    <p id="toc-empty" hidden>找不到符合的章節。</p>
+  </nav>
+
+  <main id="main" tabindex="-1"></main>
+
+  <footer class="site-footer" role="contentinfo">
+    <p>© Re:Bukanostory　·　<a id="admin-link" href="#">編輯者登入</a></p>
+  </footer>
+
+  <div id="live" class="sr-only" role="status" aria-live="polite"></div>
+
+  <div id="a11y-panel" class="a11y-panel" role="dialog" aria-modal="true" aria-labelledby="a11y-title" hidden>
+    <div class="a11y-inner">
+      <h2 id="a11y-title">無障礙設定</h2>
+      <p class="hint">設定會自動記住，下次回來仍然有效。</p>
+
+      <fieldset>
+        <legend>文字大小</legend>
+        <div class="row">
+          <button type="button" class="btn" data-act="fs-down" aria-label="縮小文字">A－</button>
+          <output id="fs-out" aria-live="polite">100%</output>
+          <button type="button" class="btn" data-act="fs-up" aria-label="放大文字">A＋</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>色彩主題</legend>
+        <label><input type="radio" name="theme" value="auto"> 跟隨系統</label>
+        <label><input type="radio" name="theme" value="light"> 淺色</label>
+        <label><input type="radio" name="theme" value="dark"> 深色</label>
+        <label><input type="radio" name="theme" value="contrast"> 高對比（黑底黃字）</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>字體</legend>
+        <label><input type="radio" name="font" value="serif"> 明體（預設）</label>
+        <label><input type="radio" name="font" value="sans"> 黑體</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>閱讀排版</legend>
+        <label>行距
+          <select id="lh">
+            <option value="1.9">標準</option>
+            <option value="2.2">寬鬆</option>
+            <option value="2.6">更寬鬆</option>
+          </select>
+        </label>
+        <label><input type="checkbox" id="narrow"> 縮窄文字欄寬（較易閱讀）</label>
+        <label><input type="checkbox" id="underline"> 連結一律加底線</label>
+        <label><input type="checkbox" id="motion"> 減少動態效果</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>朗讀本頁</legend>
+        <div class="row">
+          <button type="button" class="btn" id="tts-play">▶ 開始朗讀</button>
+          <button type="button" class="btn" id="tts-stop">■ 停止</button>
+        </div>
+        <label>語速
+          <select id="tts-rate">
+            <option value="0.8">慢</option>
+            <option value="1" selected>正常</option>
+            <option value="1.25">快</option>
+          </select>
+        </label>
+        <p class="hint" id="tts-hint"></p>
+      </fieldset>
+
+      <div class="row">
+        <button type="button" class="btn" id="a11y-reset">恢復預設</button>
+        <button type="button" class="btn primary" id="a11y-close">完成</button>
+      </div>
+    </div>
+  </div>
+
+  <noscript><p class="noscript">這個網站需要啟用 JavaScript 才能顯示章節內容。</p></noscript>
+  <script src="assets/a11y.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>

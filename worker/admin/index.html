@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="light dark">
+  <title>編輯後台 | Re:Bukanostory</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <a class="skip-link" href="#editor">跳到編輯區</a>
+  <header class="top">
+    <h1>編輯後台</h1>
+    <p class="who">登入身分：<strong id="who">…</strong></p>
+    <a id="view-site" class="btn" href="#" target="_blank" rel="noopener" hidden>開啟公開網站 ↗</a>
+  </header>
+
+  <div class="layout">
+    <nav class="side" aria-label="頁面清單">
+      <button type="button" class="btn primary wide" id="new-page">＋ 新增頁面</button>
+      <ul id="page-list"></ul>
+      <button type="button" class="btn wide" id="site-settings">網站名稱設定</button>
+    </nav>
+
+    <main id="editor" tabindex="-1">
+      <p id="empty">請從左邊選一個頁面開始編輯。</p>
+      <section id="work" hidden>
+        <div class="bar" role="toolbar" aria-label="頁面操作">
+          <span id="status-badge" class="badge"></span>
+          <span id="dirty" class="dirty" hidden>● 尚未儲存</span>
+          <span class="spacer"></span>
+          <button type="button" class="btn" id="btn-import">匯入純文字</button>
+          <button type="button" class="btn" id="btn-save">儲存草稿</button>
+          <button type="button" class="btn primary" id="btn-publish">發布</button>
+          <button type="button" class="btn" id="btn-unpublish">取消發布</button>
+          <button type="button" class="btn danger" id="btn-delete">刪除頁面</button>
+        </div>
+
+        <label class="field">頁面標題
+          <input id="title" type="text" maxlength="200" autocomplete="off">
+        </label>
+        <p class="slug-line">網址代號：<code id="slug-show"></code>　<a id="preview" href="#" target="_blank" rel="noopener" hidden>預覽公開頁面 ↗</a></p>
+
+        <div id="blocks" role="list" aria-label="頁面內容區塊"></div>
+        <div class="add-row">
+          <button type="button" class="btn" id="add-p">＋ 新增段落</button>
+          <button type="button" class="btn" id="add-img">＋ 插入圖片</button>
+        </div>
+        <p class="tip">小提示：在段落裡按 Enter 會新增下一段；詩歌／歌詞區塊的 Enter 是換行。貼上多段文字時會自動分段。</p>
+      </section>
+    </main>
+  </div>
+
+  <input type="file" id="file" accept="image/png,image/jpeg,image/gif,image/webp" hidden>
+  <div id="live" class="sr-only" role="status" aria-live="polite"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <dialog id="dlg-new" aria-labelledby="dlg-new-t">
+    <form method="dialog" id="form-new">
+      <h2 id="dlg-new-t">新增頁面</h2>
+      <label class="field">頁面標題 <input id="new-title" required maxlength="200" autocomplete="off"></label>
+      <label class="field">網址代號（小寫英文、數字、連字號）
+        <input id="new-slug" required pattern="[a-z0-9][a-z0-9\-]{0,60}" maxlength="61" autocomplete="off">
+      </label>
+      <p class="tip">網址代號建立後不能更改，例如填 <code>ch-16</code> 就會是 <code>#/ch-16</code>。</p>
+      <div class="row end">
+        <button type="button" class="btn" id="new-cancel">取消</button>
+        <button type="submit" class="btn primary">建立</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-import" aria-labelledby="dlg-import-t">
+    <form method="dialog" id="form-import">
+      <h2 id="dlg-import-t">匯入純文字</h2>
+      <p>貼上整章文字，段落之間空一行。會<strong>取代</strong>目前頁面的全部內容。</p>
+      <p class="tip">進階標記：<code>## 大標題</code>、<code>### 小標題</code>、<code>[註] 註解</code>、每行開頭 <code>| </code> 代表詩歌／歌詞。</p>
+      <label class="field">文字內容 <textarea id="import-text" rows="14"></textarea></label>
+      <div class="row end">
+        <button type="button" class="btn" id="import-cancel">取消</button>
+        <button type="submit" class="btn primary">匯入</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="dlg-site" aria-labelledby="dlg-site-t">
+    <form method="dialog" id="form-site">
+      <h2 id="dlg-site-t">網站名稱設定</h2>
+      <label class="field">網站名稱 <input id="site-title" required maxlength="100"></label>
+      <label class="field">副標題 <input id="site-sub" maxlength="200"></label>
+      <div class="row end">
+        <button type="button" class="btn" id="site-cancel">取消</button>
+        <button type="submit" class="btn primary">儲存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="admin.js"></script>
+</body>
+</html>
