@@ -137,17 +137,43 @@
       main.appendChild(el('p', null, '內容暫時讀不到，請稍後重新整理。'));
       title = '載入失敗';
     }
-    $('toc').hidden = true; $('toc-btn').setAttribute('aria-expanded', 'false');
+    closeToc(false);
     if (!first) { window.scrollTo(0, 0); main.focus({ preventScroll: true }); announce('已切換到：' + title); }
     first = false;
   }
 
-  $('toc-btn').addEventListener('click', () => {
-    const t = $('toc'); const open = t.hidden;
-    t.hidden = !open; $('toc-btn').setAttribute('aria-expanded', String(open));
-    if (open) $('toc-filter').focus();
+  // ---- 側邊章節目錄（抽屜）----
+  const toc = $('toc'), backdrop = $('toc-backdrop'), tocBtn = $('toc-btn');
+  let tocTimer;
+  function openToc() {
+    clearTimeout(tocTimer);
+    toc.hidden = false; backdrop.hidden = false;
+    requestAnimationFrame(() => { toc.classList.add('open'); backdrop.classList.add('open'); });
+    tocBtn.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+    const cur = toc.querySelector('[aria-current="page"]');
+    if (cur) cur.scrollIntoView({ block: 'center' });
+    (cur || $('toc-filter')).focus();
+  }
+  function closeToc(returnFocus) {
+    if (toc.hidden) return;
+    toc.classList.remove('open'); backdrop.classList.remove('open');
+    tocBtn.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+    tocTimer = setTimeout(() => { toc.hidden = true; backdrop.hidden = true; }, 260);
+    if (returnFocus) tocBtn.focus();
+  }
+  tocBtn.addEventListener('click', () => (toc.hidden || !toc.classList.contains('open') ? openToc() : closeToc(true)));
+  $('toc-close').addEventListener('click', () => closeToc(true));
+  backdrop.addEventListener('click', () => closeToc(true));
+  toc.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { closeToc(true); return; }
+    if (e.key !== 'Tab') return; // 焦點留在抽屜內
+    const f = [...toc.querySelectorAll('a[href], button, input')].filter((x) => !x.closest('[hidden]') && x.offsetParent !== null);
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
-  $('toc').addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('toc').hidden = true; $('toc-btn').setAttribute('aria-expanded', 'false'); $('toc-btn').focus(); } });
   $('toc-filter').addEventListener('input', applyFilter);
 
   const cfg = window.SITE || {};
