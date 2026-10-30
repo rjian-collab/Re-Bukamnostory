@@ -129,3 +129,8 @@ figcaption { font-size: .9rem; color: var(--muted); margin-top: .4rem; }
   body { background: #fff; color: #000; font-size: 12pt; }
   main { max-width: none; padding: 0; }
 }
+
+/* 法律頁面 */
+.legal { max-width: 46rem; margin: 0 auto; padding: 2rem 16px 3rem; line-height: 1.9; }
+.legal h1 { font-family: var(--font-serif); font-size: 1.8rem; }
+.legal h2 { font-family: var(--font-sans); font-size: 1.2rem; margin-top: 2rem; }
