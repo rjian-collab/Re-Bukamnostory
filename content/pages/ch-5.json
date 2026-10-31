@@ -1,8 +1,7 @@
 {
   "title": "Ch 5：芳鄰",
   "published": true,
-  "updated": "2026-10-29T13:59:50.259071Z",
-  "source": "https://rebukamnostory.wixsite.com/storycollection/ch-5-%E8%8A%B3%E9%84%B0",
+  "updated": "2026-10-31T07:54:01.090Z",
   "blocks": [
     {
       "type": "p",
@@ -51,6 +50,12 @@
     {
       "type": "p",
       "text": "江水雖是農夫，生的孩子卻個個能讀書。長子江丙寅和次子江丙丁，各自擔任南投國民學校和新豐國民學校的校長，江水的三兒江丙坤，和我三叔同年。他們一起坐火車到臺中去讀中學。半夜三點半就要起床，是很辛苦。"
+    },
+    {
+      "type": "img",
+      "src": "assets/img/mvw3sugb-line-album-250525-20.jpg",
+      "alt": "兩位好友：我的祖父鄒芳川與江水老先生",
+      "caption": ""
     },
     {
       "type": "p",
@@ -112,5 +117,6 @@
       "type": "p",
       "text": "哀  兒時歡樂  猶在昨日 歷歷在目 如今消失無蹤 空餘回憶 仰空一歎。"
     }
-  ]
+  ],
+  "source": "https://rebukamnostory.wixsite.com/storycollection/ch-5-%E8%8A%B3%E9%84%B0"
 }
