@@ -1,8 +1,7 @@
 {
   "title": "Ch 2：命運逆轉勝：從一位養女到成為好命婆婆的搏鬥人生",
   "published": true,
-  "updated": "2026-10-29T11:47:53.725Z",
-  "source": "https://rebukamnostory.wixsite.com/storycollection/%E5%91%BD%E9%81%8B%E9%80%86%E8%BD%89%E5%8B%9D-%E5%BE%9E%E4%B8%80%E4%BD%8D%E9%A4%8A%E5%A5%B3%E5%88%B0%E6%88%90%E7%82%BA%E5%A5%BD%E5%91%BD%E5%A9%86%E5%A9%86%E7%9A%84%E6%90%8F%E9%AC%A5%E4%BA%BA%E7%94%9F",
+  "updated": "2026-10-31T07:46:51.684Z",
   "blocks": [
     {
       "type": "p",
@@ -23,6 +22,16 @@
     {
       "type": "p",
       "text": "母親回答：「彼時第二次世界大戰剛剛結束，物資非常缺乏。新生兒只能喝米麩，那像你是長孫，喝牛奶。」"
+    },
+    {
+      "type": "p",
+      "text": "[鏡台照片]"
+    },
+    {
+      "type": "img",
+      "src": "assets/img/mvw39l3y-line-album-250525-25.jpg",
+      "alt": "母親的美照",
+      "caption": ""
     },
     {
       "type": "p",
@@ -71,6 +80,12 @@
     {
       "type": "h3",
       "text": "結婚"
+    },
+    {
+      "type": "img",
+      "src": "assets/img/mvw38l67-line-album-250525-26.jpg",
+      "alt": "母親與父親的結婚照",
+      "caption": ""
     },
     {
       "type": "p",
@@ -157,8 +172,10 @@
       "text": "見過面，了心願。於是我多了一位外公和兩位如花似玉、有血統關係的阿姨。至今每年阿姨都會來看我的母親，並且對她們同母異父的姊姊敬愛有加。"
     },
     {
-      "type": "note",
-      "text": "〔相片：母親和阿姨合照——原網站此處只有文字「相片　母親和阿姨合照」，沒有放入圖片，請在編輯器補上照片〕"
+      "type": "img",
+      "src": "assets/img/mvw3d2m6-line-album-250525-21.jpg",
+      "alt": "母親與兩位親生的妹妹",
+      "caption": ""
     },
     {
       "type": "h3",
@@ -175,6 +192,11 @@
     {
       "type": "p",
       "text": "眾子孫在她教誨之下，整個家族同心協力，完整達成她的美滿願望。我的母親並非天生好命，而是一生當中，不斷的和命運搏鬥，最終獲得人生的逆轉勝！"
+    },
+    {
+      "type": "note",
+      "text": "[放大家族照片]"
     }
-  ]
+  ],
+  "source": "https://rebukamnostory.wixsite.com/storycollection/%E5%91%BD%E9%81%8B%E9%80%86%E8%BD%89%E5%8B%9D-%E5%BE%9E%E4%B8%80%E4%BD%8D%E9%A4%8A%E5%A5%B3%E5%88%B0%E6%88%90%E7%82%BA%E5%A5%BD%E5%91%BD%E5%A9%86%E5%A9%86%E7%9A%84%E6%90%8F%E9%AC%A5%E4%BA%BA%E7%94%9F"
 }
