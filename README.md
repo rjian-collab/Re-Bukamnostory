@@ -1,4 +1,4 @@
-# Bukam's story 網站（GitHub Pages + Cloudflare 後台）
+# 鑑の物語 網站（GitHub Pages + Cloudflare 後台）
 
 這個資料夾包含兩個部分：
 
