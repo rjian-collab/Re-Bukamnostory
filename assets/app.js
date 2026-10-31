@@ -18,6 +18,11 @@
     return r.json();
   }
   const visible = () => (INDEX ? INDEX.pages.filter(p => p.published) : []);
+  // 「Ch 3：半山老家」→ ['Ch 3', '半山老家']，用來把章號和章名分開排版
+  function splitTitle(t) {
+    const m = /^(Ch\s*\d+|EXT|Final Chapter)\s*[：:]\s*(.+)$/.exec(t || '');
+    return m ? [m[1] === 'Final Chapter' ? 'Final' : m[1].replace(/\s+/, ' '), m[2]] : [null, t];
+  }
 
   function renderBlocks(container, blocks) {
     for (const b of blocks || []) {
@@ -78,7 +83,11 @@
     const ul = el('ul', { class: 'chapter-grid' });
     for (const p of visible()) {
       const li = el('li');
-      li.appendChild(el('a', { href: '#/' + p.slug }, p.title));
+      const a = el('a', { href: '#/' + p.slug });
+      const [no, name] = splitTitle(p.title);
+      if (no) a.appendChild(el('span', { class: 'ch-no' }, no));
+      a.appendChild(el('span', { class: 'ch-name' }, name));
+      li.appendChild(a);
       ul.appendChild(li);
     }
     main.appendChild(ul);
@@ -104,9 +113,15 @@
     renderBlocks(main, page.blocks);
 
     const pager = el('nav', { class: 'pager', 'aria-label': '上下章' });
-    if (list[i - 1]) pager.appendChild(el('a', { href: '#/' + list[i - 1].slug, rel: 'prev' }, '← ' + list[i - 1].title));
+    const pagerLink = (pg, rel, dir) => {
+      const a = el('a', { href: '#/' + pg.slug, rel });
+      a.appendChild(el('span', { class: 'pager-dir' }, dir));
+      a.appendChild(el('span', { class: 'pager-title' }, pg.title));
+      return a;
+    };
+    if (list[i - 1]) pager.appendChild(pagerLink(list[i - 1], 'prev', '← 上一章'));
     else pager.appendChild(el('span'));
-    if (list[i + 1]) pager.appendChild(el('a', { href: '#/' + list[i + 1].slug, rel: 'next' }, list[i + 1].title + ' →'));
+    if (list[i + 1]) pager.appendChild(pagerLink(list[i + 1], 'next', '下一章 →'));
     main.appendChild(pager);
     buildToc(slug);
     setTitle(page.title);
